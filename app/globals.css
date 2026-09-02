@@ -108,3 +108,17 @@ footer { border-top: 1px solid var(--border); padding: 22px 0; display: flex; ju
 .evo-embedded-clear p { color: var(--muted); font-size: 13px; line-height: 1.8; margin: 0 0 24px; }
 
 @media (max-width: 700px) { .creature-pond { max-height: 300px; } .evo-victory { padding: 60px 18px; } .evo-victory h1 { font-size: 30px; } }
+
+/* --- MIXING LAB (beaker experiment) --- */
+.beaker { position: relative; width: 150px; height: 190px; overflow: hidden; border: 5px solid var(--foreground); border-top: 0; border-radius: 8px 8px 28px 28px; background: rgb(255 255 255 / 72%); transform: perspective(400px) rotateX(-2deg); }
+.beaker::before { position: absolute; z-index: 2; top: -9px; right: -14px; left: -14px; height: 14px; border: 5px solid var(--foreground); border-radius: 8px; background: white; content: ''; }
+.beaker .liquid { position: absolute; inset: 66px 0 0; background: #8b77b8; transition: background 600ms ease, inset 600ms ease; }
+.beaker-lemon .liquid { inset: 45px 0 0; background: #e6495f; }
+.beaker-soap .liquid { inset: 45px 0 0; background: #9bd03f; }
+.beaker-fizz .liquid { inset: 38px 0 0; background: #f1c453; }
+.beaker .beaker-line { position: absolute; top: 85px; right: 20px; left: 20px; border-top: 2px solid rgb(30 37 38 / 30%); }
+.lab-shake { animation: labShake 500ms ease-in-out; }
+.bubbles { position: absolute; z-index: 3; inset: 16% 35%; }
+.bubbles i { position: absolute; bottom: 10%; left: calc(var(--i) * 7%); width: 13px; height: 13px; border: 2px solid white; border-radius: 999px; animation: labBubble 1.5s ease-in infinite; animation-delay: calc(var(--i) * -0.09s); }
+@keyframes labBubble { 0% { opacity: 0; transform: translateY(30px) scale(0.5); } 35% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-190px) scale(1.2); } }
+@keyframes labShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px) rotate(-1deg); } 75% { transform: translateX(5px) rotate(1deg); } }
