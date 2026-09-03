@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'TECH QUEST | 徳山高専 ものづくり適性診断',
-  description: 'つくって、考えて、試してみる。徳山高専のものづくり体験と適性診断。',
+  title: 'まちをまもれ！ | Levee Defense Simulator',
+  description: '材料を選んで堤防を設計し、10秒間、川沿いの町を守る防災シミュレーター。',
   generator: 'v0.app',
 }
 
