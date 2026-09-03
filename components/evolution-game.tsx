@@ -10,13 +10,16 @@ type Particle = { x: number; y: number; vx: number; vy: number; life: number; co
 
 const W = 900
 const H = 520
-const SHORE_X = 270
+const WATER_X = 0
+const WATER_W = 225
+const GRID_X = 250
+const GRID_W = 315
+const TOWN_X = 585
 const GROUND_Y = 392
-const CELL_W = 46
+const CELL_W = 26
 const CELL_H = 38
 const COLS = 12
 const ROWS = 3
-const GRID_X = SHORE_X
 const GRID_Y = GROUND_Y - ROWS * CELL_H
 const MAX_BUDGET = 100
 const PEAK_WATER = 242
@@ -30,6 +33,8 @@ export function EvolutionGame() {
   const rainStartRef = useRef(0)
   const outcomeRef = useRef<Mode>('build')
   const particlesRef = useRef<Particle[]>([])
+  const collapseRef = useRef<number[]>([])
+  const collapseTimerRef = useRef(0)
   const [material, setMaterial] = useState<Material>('soil')
   const [mode, setMode] = useState<Mode>('build')
   const [elapsed, setElapsed] = useState(0)
@@ -47,6 +52,8 @@ export function EvolutionGame() {
   const reset = useCallback(() => {
     blocksRef.current = Array(blocksCount).fill(null)
     particlesRef.current = []
+    collapseRef.current = []
+    collapseTimerRef.current = 0
     outcomeRef.current = 'build'
     setMode('build'); setElapsed(0); setBudget(0); setToast('')
   }, [])
@@ -88,15 +95,16 @@ export function EvolutionGame() {
       ctx.clearRect(0, 0, W, H)
       // drawBackground: a strict shoreline split — water occupies only the left 30%.
       ctx.fillStyle = '#d8c9a7'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#dff0d8'; ctx.fillRect(SHORE_X, 0, W - SHORE_X, H)
-      ctx.fillStyle = '#78b9c7'; ctx.fillRect(0, GROUND_Y, SHORE_X, H - GROUND_Y)
-      ctx.fillStyle = '#5ca1b2'; ctx.fillRect(0, GROUND_Y + 42, SHORE_X, H - GROUND_Y - 42)
+      ctx.fillStyle = '#dff0d8'; ctx.fillRect(TOWN_X, 0, W - TOWN_X, H)
+      ctx.fillStyle = '#eef1df'; ctx.fillRect(GRID_X, 0, GRID_W, H)
+      ctx.fillStyle = '#78b9c7'; ctx.fillRect(WATER_X, 0, WATER_W, H)
+      ctx.fillStyle = '#5ca1b2'; ctx.fillRect(WATER_X, GROUND_Y + 42, WATER_W, H - GROUND_Y - 42)
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2
-      for (let i = 0; i < 4; i++) { const y = GROUND_Y + 24 + i * 28; ctx.beginPath(); ctx.moveTo(18, y); ctx.quadraticCurveTo(92, y - 10 + Math.sin(now / 480 + i) * 4, SHORE_X - 18, y); ctx.stroke() }
-      ctx.fillStyle = '#537155'; ctx.fillRect(SHORE_X, GROUND_Y - 8, W - SHORE_X, 8)
+      for (let i = 0; i < 4; i++) { const y = GROUND_Y + 24 + i * 28; ctx.beginPath(); ctx.moveTo(18, y); ctx.quadraticCurveTo(92, y - 10 + Math.sin(now / 480 + i) * 4, WATER_W - 18, y); ctx.stroke() }
+      ctx.fillStyle = '#537155'; ctx.fillRect(GRID_X, GROUND_Y - 8, W - GRID_X, 8)
       ctx.fillStyle = '#304f59'; ctx.font = '700 13px sans-serif'; ctx.fillText('川・海', 26, GROUND_Y - 18); ctx.fillText('暮らしのある町', 686, GROUND_Y - 18)
-      ctx.fillStyle = '#f4ead7'; ctx.fillRect(610, 202, 145, 80); ctx.fillStyle = '#c8755d'; ctx.fillRect(629, 220, 38, 62); ctx.fillRect(687, 213, 43, 69); ctx.fillStyle = '#fff3c8'; ctx.fillRect(638, 231, 12, 15); ctx.fillRect(696, 223, 14, 17)
-      ctx.fillStyle = '#e9eef0'; ctx.fillRect(786, 188, 70, 94); ctx.fillStyle = '#d9a44b'; ctx.fillRect(797, 199, 48, 30); ctx.fillStyle = '#496b58'; ctx.font = '700 11px "Noto Sans JP", sans-serif'; ctx.fillText('学校', 809, 217)
+      ctx.fillStyle = '#f4ead7'; ctx.fillRect(TOWN_X + 18, 202, 145, 80); ctx.fillStyle = '#c8755d'; ctx.fillRect(TOWN_X + 37, 220, 38, 62); ctx.fillRect(TOWN_X + 95, 213, 43, 69); ctx.fillStyle = '#fff3c8'; ctx.fillRect(TOWN_X + 46, 231, 12, 15); ctx.fillRect(TOWN_X + 104, 223, 14, 17)
+      ctx.fillStyle = '#e9eef0'; ctx.fillRect(TOWN_X + 201, 188, 70, 94); ctx.fillStyle = '#d9a44b'; ctx.fillRect(TOWN_X + 212, 199, 48, 30); ctx.fillStyle = '#496b58'; ctx.font = '700 11px "Noto Sans JP", sans-serif'; ctx.fillText('学校', 809, 217)
       ctx.fillStyle = '#304f59'; ctx.font = '21px sans-serif'; ctx.fillText(current === 'failed' ? '☹  ☹  ☹' : current === 'won' ? '↑  ↑  ↑' : '•  •  •', 642, 322)
       ctx.strokeStyle = '#d79b3b'; ctx.setLineDash([7, 5]); ctx.strokeRect(GRID_X - 8, GRID_Y - 8, COLS * CELL_W + 8, ROWS * CELL_H + 8); ctx.setLineDash([])
       ctx.fillStyle = '#856a45'; ctx.font = '700 12px sans-serif'; ctx.fillText('ここに堤防をつくる', GRID_X, GRID_Y - 14)
@@ -106,7 +114,7 @@ export function EvolutionGame() {
         const water = current === 'won' ? Math.max(0, PEAK_WATER - (seconds - 10) * 18) : Math.min(PEAK_WATER, seconds * 24)
         const reachesGround = water >= H - GROUND_Y
         // drawWater: water rises in the sea first; only then can it travel across land.
-        ctx.fillStyle = 'rgba(35,79,103,.84)'; ctx.fillRect(0, H - water, SHORE_X, water)
+        ctx.fillStyle = 'rgba(35,79,103,.84)'; ctx.fillRect(WATER_X, H - water, WATER_W, water)
         const leveeBlocks = blocksRef.current.filter(Boolean).length
         const leveeHeight = leveeBlocks ? Math.max(CELL_H, Math.min(ROWS * CELL_H, Math.ceil(leveeBlocks / COLS) * CELL_H)) : 0
         const overtops = reachesGround && leveeHeight < water
@@ -117,7 +125,11 @@ export function EvolutionGame() {
       }
       particlesRef.current.forEach((p) => { p.x += p.vx; p.y += p.vy; p.vy += .04; p.life -= .012; ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); ctx.globalAlpha = 1 })
       particlesRef.current = particlesRef.current.filter((p) => p.life > 0)
-      if (current === 'rain') { const seconds = Math.floor((now - rainStartRef.current) / 1000); setElapsed(seconds); const s = stats(); const low = s.height < 3; const weak = s.soilRatio >= .6; if (seconds >= 2 && (weak || low)) { outcomeRef.current = 'failed'; setMode('failed'); setToast(weak ? '失敗！土砂パーツが多すぎて堤防が崩壊しました！コンクリートを混ぜて頑丈にしよう。' : '失敗！堤防が低すぎて水が溢れてしまいました！もっと高く積み上げよう。') } else if (seconds >= 10) { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') } }
+      if (current === 'rain') { const seconds = Math.floor((now - rainStartRef.current) / 1000); setElapsed(seconds); const s = stats(); const low = s.height < 3; const weak = s.soilRatio >= .6
+        if (seconds >= 2 && weak && !collapseRef.current.length) { collapseRef.current = blocksRef.current.map((b, i) => b?.material === 'soil' ? i : -1).filter((i) => i >= 0); collapseTimerRef.current = now; setToast('土砂パーツが崩れ始めました！') }
+        if (collapseRef.current.length && now - collapseTimerRef.current > 260) { const index = collapseRef.current.shift(); if (index !== undefined && blocksRef.current[index]) { const col = index % COLS; const row = Math.floor(index / COLS); for (let i = 0; i < 8; i++) particlesRef.current.push({ x: GRID_X + col * CELL_W + 8 + Math.random() * 12, y: GRID_Y + row * CELL_H + 12, vx: Math.random() * 2 - 1, vy: -Math.random() * 2, life: 1, color: '#8a6339' }); blocksRef.current[index] = null } collapseTimerRef.current = now }
+        const collapsed = !collapseRef.current.length && weak && seconds >= 2
+        if (seconds >= 2 && (low || collapsed)) { outcomeRef.current = 'failed'; setMode('failed'); setToast(collapsed ? '失敗！土砂パーツが崩れて水が町へ流れ込みました！' : '失敗！堤防が低すぎて水が溢れてしまいました！もっと高く積み上げよう。') } else if (seconds >= 10) { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') } }
       frameRef.current = requestAnimationFrame(draw)
     }
     frameRef.current = requestAnimationFrame(draw)
