@@ -118,7 +118,7 @@ export function EvolutionGame() {
         const leveeBlocks = blocksRef.current.filter(Boolean).length
         const leveeHeight = leveeBlocks ? Math.max(CELL_H, Math.min(ROWS * CELL_H, Math.ceil(leveeBlocks / COLS) * CELL_H)) : 0
         const overtops = reachesGround && leveeHeight < water
-        if (reachesGround && overtops) { ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(SHORE_X, GROUND_Y, W - SHORE_X, water - (H - GROUND_Y)) }
+        if (reachesGround && overtops) { ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(GRID_X, GROUND_Y, W - GRID_X, water - (H - GROUND_Y)) }
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 70; i++) { const x = (i * 97 + now / 8) % W; const y = (i * 43 + now / 4) % 300; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 13); ctx.stroke() }
         if (current === 'won' && particlesRef.current.length < 100) for (let i = 0; i < 20; i++) particlesRef.current.push({ x: 580 + Math.random() * 260, y: 180, vx: Math.random() * 4 - 2, vy: Math.random() * 3 + 1, life: 1, color: ['#d99336', '#245a68', '#a94d47'][i % 3] })
         if (current === 'failed' && water >= PEAK_WATER) ctx.fillStyle = 'rgba(35,79,103,.38)'
