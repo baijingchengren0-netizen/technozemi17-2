@@ -21,6 +21,8 @@ const CELL_H = 38
 const COLS = 12
 const ROWS = 3
 const GRID_Y = GROUND_Y - ROWS * CELL_H
+// Compatibility alias prevents stale preview bundles from failing during HMR.
+const SHORE_X = GRID_X
 const MAX_BUDGET = 100
 const PEAK_WATER = 242
 const blocksCount = COLS * ROWS
