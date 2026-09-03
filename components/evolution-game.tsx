@@ -10,12 +10,14 @@ type Particle = { x: number; y: number; vx: number; vy: number; life: number; co
 
 const W = 900
 const H = 520
-const GRID_X = 300
-const GRID_Y = 344
+const SHORE_X = 270
+const GROUND_Y = 392
 const CELL_W = 46
 const CELL_H = 38
 const COLS = 12
 const ROWS = 3
+const GRID_X = SHORE_X
+const GRID_Y = GROUND_Y - ROWS * CELL_H
 const MAX_BUDGET = 100
 const PEAK_WATER = 242
 const blocksCount = COLS * ROWS
@@ -84,14 +86,15 @@ export function EvolutionGame() {
     const draw = (now: number) => {
       const current = outcomeRef.current
       ctx.clearRect(0, 0, W, H)
+      // drawBackground: a strict shoreline split — water occupies only the left 30%.
       ctx.fillStyle = '#d8c9a7'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#f0e6cd'; ctx.fillRect(0, 0, W, 284)
-      ctx.fillStyle = '#7eb8bf'; ctx.fillRect(0, 292, W, 228)
-      ctx.fillStyle = '#4e969f'; ctx.fillRect(0, 333, W, 187)
-      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2
-      for (let i = 0; i < 8; i++) { const x = 20 + i * 125; ctx.beginPath(); ctx.moveTo(x, 355); ctx.quadraticCurveTo(x + 35, 342 + Math.sin(now / 480 + i) * 4, x + 82, 355); ctx.stroke() }
-      ctx.fillStyle = '#537155'; ctx.fillRect(0, 282, W, 11)
-      ctx.fillStyle = '#304f59'; ctx.font = '700 13px sans-serif'; ctx.fillText('川・海', 26, 273); ctx.fillText('暮らしのある町', 686, 273)
+      ctx.fillStyle = '#dff0d8'; ctx.fillRect(SHORE_X, 0, W - SHORE_X, H)
+      ctx.fillStyle = '#78b9c7'; ctx.fillRect(0, GROUND_Y, SHORE_X, H - GROUND_Y)
+      ctx.fillStyle = '#5ca1b2'; ctx.fillRect(0, GROUND_Y + 42, SHORE_X, H - GROUND_Y - 42)
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2
+      for (let i = 0; i < 4; i++) { const y = GROUND_Y + 24 + i * 28; ctx.beginPath(); ctx.moveTo(18, y); ctx.quadraticCurveTo(92, y - 10 + Math.sin(now / 480 + i) * 4, SHORE_X - 18, y); ctx.stroke() }
+      ctx.fillStyle = '#537155'; ctx.fillRect(SHORE_X, GROUND_Y - 8, W - SHORE_X, 8)
+      ctx.fillStyle = '#304f59'; ctx.font = '700 13px sans-serif'; ctx.fillText('川・海', 26, GROUND_Y - 18); ctx.fillText('暮らしのある町', 686, GROUND_Y - 18)
       ctx.fillStyle = '#f4ead7'; ctx.fillRect(610, 202, 145, 80); ctx.fillStyle = '#c8755d'; ctx.fillRect(629, 220, 38, 62); ctx.fillRect(687, 213, 43, 69); ctx.fillStyle = '#fff3c8'; ctx.fillRect(638, 231, 12, 15); ctx.fillRect(696, 223, 14, 17)
       ctx.fillStyle = '#e9eef0'; ctx.fillRect(786, 188, 70, 94); ctx.fillStyle = '#d9a44b'; ctx.fillRect(797, 199, 48, 30); ctx.fillStyle = '#496b58'; ctx.font = '700 11px "Noto Sans JP", sans-serif'; ctx.fillText('学校', 809, 217)
       ctx.fillStyle = '#304f59'; ctx.font = '21px sans-serif'; ctx.fillText(current === 'failed' ? '☹  ☹  ☹' : current === 'won' ? '↑  ↑  ↑' : '•  •  •', 642, 322)
@@ -101,8 +104,13 @@ export function EvolutionGame() {
       if (current === 'rain' || current === 'failed' || current === 'won') {
         const seconds = Math.min(10, (now - rainStartRef.current) / 1000)
         const water = current === 'won' ? Math.max(0, PEAK_WATER - (seconds - 10) * 18) : Math.min(PEAK_WATER, seconds * 24)
-        ctx.fillStyle = 'rgba(35,79,103,.84)'; ctx.fillRect(0, 520 - water, 292, water)
-        ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(292, 520 - water, 608, water)
+        const reachesGround = water >= H - GROUND_Y
+        // drawWater: water rises in the sea first; only then can it travel across land.
+        ctx.fillStyle = 'rgba(35,79,103,.84)'; ctx.fillRect(0, H - water, SHORE_X, water)
+        const leveeBlocks = blocksRef.current.filter(Boolean).length
+        const leveeHeight = leveeBlocks ? Math.max(CELL_H, Math.min(ROWS * CELL_H, Math.ceil(leveeBlocks / COLS) * CELL_H)) : 0
+        const overtops = reachesGround && leveeHeight < water
+        if (reachesGround && overtops) { ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(SHORE_X, GROUND_Y, W - SHORE_X, water - (H - GROUND_Y)) }
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 70; i++) { const x = (i * 97 + now / 8) % W; const y = (i * 43 + now / 4) % 300; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 13); ctx.stroke() }
         if (current === 'won' && particlesRef.current.length < 100) for (let i = 0; i < 20; i++) particlesRef.current.push({ x: 580 + Math.random() * 260, y: 180, vx: Math.random() * 4 - 2, vy: Math.random() * 3 + 1, life: 1, color: ['#d99336', '#245a68', '#a94d47'][i % 3] })
         if (current === 'failed' && water >= PEAK_WATER) ctx.fillStyle = 'rgba(35,79,103,.38)'
