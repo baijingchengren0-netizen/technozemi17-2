@@ -45,9 +45,11 @@ export function EvolutionGame() {
   const stats = useCallback(() => {
     const blocks = blocksRef.current.filter(Boolean) as Block[]
     const soil = blocks.filter((b) => b.material === 'soil').length
-    const height = blocks.reduce((max, _, index) => Math.max(max, ROWS - Math.floor(index / COLS)), 0)
+    const occupiedRows = Array.from({ length: ROWS }, (_, row) => blocksRef.current.slice(row * COLS, (row + 1) * COLS).some(Boolean))
+    const height = occupiedRows.reduce((max, occupied, row) => occupied ? Math.max(max, row + 1) : max, 0)
+    const completeRows = height > 0 && Array.from({ length: height }, (_, row) => blocksRef.current.slice(row * COLS, (row + 1) * COLS).every(Boolean)).every(Boolean)
     const strength = blocks.reduce((sum, b) => sum + (b.material === 'concrete' ? 13 : 6), 0)
-    return { blocks, soil, height, strength, soilRatio: blocks.length ? soil / blocks.length : 0 }
+    return { blocks, soil, height, completeRows, strength, soilRatio: blocks.length ? soil / blocks.length : 0 }
   }, [])
 
   const reset = useCallback(() => {
@@ -127,11 +129,11 @@ export function EvolutionGame() {
       }
       particlesRef.current.forEach((p) => { p.x += p.vx; p.y += p.vy; p.vy += .04; p.life -= .012; ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); ctx.globalAlpha = 1 })
       particlesRef.current = particlesRef.current.filter((p) => p.life > 0)
-      if (current === 'rain') { const seconds = Math.floor((now - rainStartRef.current) / 1000); setElapsed(seconds); const s = stats(); const low = s.height < 3; const weak = s.soilRatio >= .6
-        if (seconds >= 2 && weak && !collapseRef.current.length) { collapseRef.current = blocksRef.current.map((b, i) => b?.material === 'soil' ? i : -1).filter((i) => i >= 0); collapseTimerRef.current = now; setToast('土砂パーツが崩れ始めました！') }
+      if (current === 'rain') { const seconds = Math.floor((now - rainStartRef.current) / 1000); setElapsed(seconds); const s = stats(); const low = s.height <= 2; const thin = !s.completeRows; const soilFail = s.soilRatio >= .6
+        if (seconds >= 2 && thin && !collapseRef.current.length) { collapseRef.current = blocksRef.current.map((b, i) => b ? i : -1).filter((i) => i >= 0); collapseTimerRef.current = now; setToast('土砂パーツが崩れ始めました！') }
         if (collapseRef.current.length && now - collapseTimerRef.current > 260) { const index = collapseRef.current.shift(); if (index !== undefined && blocksRef.current[index]) { const col = index % COLS; const row = Math.floor(index / COLS); for (let i = 0; i < 8; i++) particlesRef.current.push({ x: GRID_X + col * CELL_W + 8 + Math.random() * 12, y: GRID_Y + row * CELL_H + 12, vx: Math.random() * 2 - 1, vy: -Math.random() * 2, life: 1, color: '#8a6339' }); blocksRef.current[index] = null } collapseTimerRef.current = now }
-        const collapsed = !collapseRef.current.length && weak && seconds >= 2
-        if (seconds >= 2 && (low || collapsed)) { outcomeRef.current = 'failed'; setMode('failed'); setToast(collapsed ? '失敗！土砂パーツが崩れて水が町へ流れ込みました！' : '失敗！堤防が低すぎて水が溢れてしまいました！もっと高く積み上げよう。') } else if (seconds >= 10) { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') } }
+        const broken = thin && !collapseRef.current.length && seconds >= 2
+        if (seconds >= 2 && (low || broken || soilFail)) { outcomeRef.current = 'failed'; setMode('failed'); setToast(low ? '失敗！堤防が低すぎます（縦2マス以下）！水が溢れてしまいました。' : '失敗！堤防の厚みが足りません（横3マスすべて埋まっていません）！水圧で堤防が破壊されました。') } else if (seconds >= 10 && s.height >= 3 && s.height <= 4 && s.completeRows && s.soilRatio < .6 && budget <= MAX_BUDGET) { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') } }
       frameRef.current = requestAnimationFrame(draw)
     }
     frameRef.current = requestAnimationFrame(draw)
