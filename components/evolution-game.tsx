@@ -10,6 +10,7 @@ type Particle = { x: number; y: number; vx: number; vy: number; life: number; co
 
 const W = 900
 const H = 520
+const INITIAL_WATER_Y = 379
 const WATER_X = 0
 const WATER_W = 225
 const GRID_X = WATER_W + 18
@@ -36,6 +37,7 @@ export function EvolutionGame() {
   const particlesRef = useRef<Particle[]>([])
   const collapseRef = useRef<number[]>([])
   const collapseTimerRef = useRef(0)
+  const floodProgressRef = useRef(0)
   const [material, setMaterial] = useState<Material>('soil')
   const [mode, setMode] = useState<Mode>('build')
   const [elapsed, setElapsed] = useState(0)
@@ -57,6 +59,7 @@ export function EvolutionGame() {
     particlesRef.current = []
     collapseRef.current = []
     collapseTimerRef.current = 0
+    floodProgressRef.current = 0
     outcomeRef.current = 'build'
     setMode('build'); setElapsed(0); setBudget(0); setToast('')
   }, [])
@@ -85,6 +88,7 @@ export function EvolutionGame() {
   const startRain = useCallback(() => {
     if (mode !== 'build' || budget > MAX_BUDGET || !blocksRef.current.some(Boolean)) return
     rainStartRef.current = performance.now()
+    floodProgressRef.current = 0
     outcomeRef.current = 'rain'
     setMode('rain'); setToast('')
   }, [budget, mode])
@@ -99,8 +103,9 @@ export function EvolutionGame() {
       // drawBackground: a strict shoreline split — water occupies only the left 30%.
       ctx.fillStyle = '#d8c9a7'; ctx.fillRect(0, 0, W, H)
       ctx.fillStyle = '#dff0d8'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#78b9c7'; ctx.fillRect(WATER_X, GROUND_Y, WATER_W, H - GROUND_Y)
-      ctx.fillStyle = '#5ca1b2'; ctx.fillRect(WATER_X, GROUND_Y + 42, WATER_W, H - GROUND_Y - 42)
+      // drawWater: the river is full before rain; rain only moves its surface upward.
+      ctx.fillStyle = '#78b9c7'; ctx.fillRect(WATER_X, INITIAL_WATER_Y, WATER_W, H - INITIAL_WATER_Y)
+      ctx.fillStyle = '#5ca1b2'; ctx.fillRect(WATER_X, INITIAL_WATER_Y + 42, WATER_W, H - INITIAL_WATER_Y - 42)
       ctx.strokeStyle = '#537155'; ctx.lineWidth = 3
       ctx.beginPath(); ctx.moveTo(WATER_W, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke()
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2
@@ -115,13 +120,16 @@ export function EvolutionGame() {
       for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GRID_Y + row * CELL_H; ctx.strokeStyle = 'rgba(115,96,65,.35)'; ctx.strokeRect(x, y, CELL_W, CELL_H); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x + 2, y + 2, 38, 30); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
       if (current === 'rain' || current === 'failed' || current === 'won') {
         const seconds = Math.min(10, (now - rainStartRef.current) / 1000)
-        const water = current === 'won' ? Math.max(0, PEAK_WATER - (seconds - 10) * 18) : Math.min(PEAK_WATER, seconds * 24)
-        const reachesGround = water >= H - GROUND_Y
-        // drawWater: water rises in the sea first; only then can it travel across land.
-        ctx.fillStyle = 'rgba(35,79,103,.84)'; ctx.fillRect(WATER_X, H - water, WATER_W, water)
+        const waterY = current === 'won' ? INITIAL_WATER_Y : Math.max(0, INITIAL_WATER_Y - seconds * 24)
+        const water = H - waterY
+        const reachesGround = waterY <= GROUND_Y
+        // drawWater: surface rises from INITIAL_WATER_Y, never from underground.
+        ctx.fillStyle = 'rgba(35,79,103,.84)'; ctx.fillRect(WATER_X, waterY, WATER_W, H - waterY)
         const leveeBlocks = blocksRef.current.filter(Boolean).length
         const leveeHeight = leveeBlocks ? Math.max(CELL_H, Math.min(ROWS * CELL_H, Math.ceil(leveeBlocks / COLS) * CELL_H)) : 0
         const overtops = reachesGround && leveeHeight < water
+        if (current === 'failed') floodProgressRef.current = Math.min(W - 200, floodProgressRef.current + 8)
+        if (current === 'failed' && floodProgressRef.current > 0) { ctx.fillStyle = 'rgba(35,79,103,.62)'; ctx.fillRect(200, GROUND_Y, floodProgressRef.current, H - GROUND_Y) }
         if (reachesGround && overtops) { ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(GRID_X, GROUND_Y, W - GRID_X, water - (H - GROUND_Y)) }
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 70; i++) { const x = (i * 97 + now / 8) % W; const y = (i * 43 + now / 4) % 300; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 13); ctx.stroke() }
         if (current === 'won' && particlesRef.current.length < 100) for (let i = 0; i < 20; i++) particlesRef.current.push({ x: 580 + Math.random() * 260, y: 180, vx: Math.random() * 4 - 2, vy: Math.random() * 3 + 1, life: 1, color: ['#d99336', '#245a68', '#a94d47'][i % 3] })
