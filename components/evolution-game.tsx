@@ -12,16 +12,15 @@ const W = 900
 const H = 520
 const WATER_X = 0
 const WATER_W = 225
-const GRID_X = 250
-const GRID_W = 315
+const GRID_X = WATER_W + 18
 const TOWN_X = 585
-const GROUND_Y = 392
-const CELL_W = 26
+const GROUND_Y = 364
+const CELL_W = 70
 const CELL_H = 38
-const COLS = 12
-const ROWS = 3
+const COLS = 3
+const ROWS = 4
 const GRID_Y = GROUND_Y - ROWS * CELL_H
-// Compatibility alias prevents stale preview bundles from failing during HMR.
+// Compatibility alias for older preview bundles.
 const SHORE_X = GRID_X
 const MAX_BUDGET = 100
 const PEAK_WATER = 242
@@ -97,10 +96,11 @@ export function EvolutionGame() {
       ctx.clearRect(0, 0, W, H)
       // drawBackground: a strict shoreline split — water occupies only the left 30%.
       ctx.fillStyle = '#d8c9a7'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#dff0d8'; ctx.fillRect(TOWN_X, 0, W - TOWN_X, H)
-      ctx.fillStyle = '#eef1df'; ctx.fillRect(GRID_X, 0, GRID_W, H)
-      ctx.fillStyle = '#78b9c7'; ctx.fillRect(WATER_X, 0, WATER_W, H)
+      ctx.fillStyle = '#dff0d8'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = '#78b9c7'; ctx.fillRect(WATER_X, GROUND_Y, WATER_W, H - GROUND_Y)
       ctx.fillStyle = '#5ca1b2'; ctx.fillRect(WATER_X, GROUND_Y + 42, WATER_W, H - GROUND_Y - 42)
+      ctx.strokeStyle = '#537155'; ctx.lineWidth = 3
+      ctx.beginPath(); ctx.moveTo(WATER_W, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke()
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2
       for (let i = 0; i < 4; i++) { const y = GROUND_Y + 24 + i * 28; ctx.beginPath(); ctx.moveTo(18, y); ctx.quadraticCurveTo(92, y - 10 + Math.sin(now / 480 + i) * 4, WATER_W - 18, y); ctx.stroke() }
       ctx.fillStyle = '#537155'; ctx.fillRect(GRID_X, GROUND_Y - 8, W - GRID_X, 8)
@@ -108,9 +108,9 @@ export function EvolutionGame() {
       ctx.fillStyle = '#f4ead7'; ctx.fillRect(TOWN_X + 18, 202, 145, 80); ctx.fillStyle = '#c8755d'; ctx.fillRect(TOWN_X + 37, 220, 38, 62); ctx.fillRect(TOWN_X + 95, 213, 43, 69); ctx.fillStyle = '#fff3c8'; ctx.fillRect(TOWN_X + 46, 231, 12, 15); ctx.fillRect(TOWN_X + 104, 223, 14, 17)
       ctx.fillStyle = '#e9eef0'; ctx.fillRect(TOWN_X + 201, 188, 70, 94); ctx.fillStyle = '#d9a44b'; ctx.fillRect(TOWN_X + 212, 199, 48, 30); ctx.fillStyle = '#496b58'; ctx.font = '700 11px "Noto Sans JP", sans-serif'; ctx.fillText('学校', 809, 217)
       ctx.fillStyle = '#304f59'; ctx.font = '21px sans-serif'; ctx.fillText(current === 'failed' ? '☹  ☹  ☹' : current === 'won' ? '↑  ↑  ↑' : '•  •  •', 642, 322)
-      ctx.strokeStyle = '#d79b3b'; ctx.setLineDash([7, 5]); ctx.strokeRect(GRID_X - 8, GRID_Y - 8, COLS * CELL_W + 8, ROWS * CELL_H + 8); ctx.setLineDash([])
+      ctx.strokeStyle = '#d79b3b'; ctx.setLineDash([7, 5]); ctx.strokeRect(GRID_X - 6, GRID_Y - 6, COLS * CELL_W + 12, ROWS * CELL_H + 6); ctx.setLineDash([])
       ctx.fillStyle = '#856a45'; ctx.font = '700 12px sans-serif'; ctx.fillText('ここに堤防をつくる', GRID_X, GRID_Y - 14)
-      for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GRID_Y + row * CELL_H; ctx.strokeStyle = '#e3d3b1'; ctx.strokeRect(x, y, 42, 34); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x + 2, y + 2, 38, 30); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
+      for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GRID_Y + row * CELL_H; ctx.strokeStyle = 'rgba(115,96,65,.35)'; ctx.strokeRect(x, y, CELL_W, CELL_H); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x + 2, y + 2, 38, 30); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
       if (current === 'rain' || current === 'failed' || current === 'won') {
         const seconds = Math.min(10, (now - rainStartRef.current) / 1000)
         const water = current === 'won' ? Math.max(0, PEAK_WATER - (seconds - 10) * 18) : Math.min(PEAK_WATER, seconds * 24)
