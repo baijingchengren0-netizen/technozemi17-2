@@ -1,6 +1,9 @@
 import { Analytics } from '@vercel/analytics/next'
+import { Noto_Sans_JP } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+
+const notoSansJP = Noto_Sans_JP({ subsets: ['latin'], variable: '--font-noto-sans-jp' })
 
 export const metadata: Metadata = {
   title: 'まちをまもれ！ | Levee Defense Simulator',
@@ -15,5 +18,5 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ja" className="bg-background"><body className="antialiased">{children}{process.env.NODE_ENV === 'production' && <Analytics />}</body></html>
+  return <html lang="ja" className={`bg-background ${notoSansJP.variable}`}><body className="antialiased">{children}{process.env.NODE_ENV === 'production' && <Analytics />}</body></html>
 }
