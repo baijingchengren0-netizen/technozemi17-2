@@ -72,7 +72,7 @@ export function EvolutionGame() {
     const x = ((event.clientX - rect.left) / rect.width) * W
     const y = ((event.clientY - rect.top) / rect.height) * H
     const col = Math.floor((x - GRID_X) / CELL_W)
-    const row = Math.floor((y - GRID_Y) / CELL_H)
+    const row = Math.floor((GROUND_Y - y) / CELL_H)
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return
     const index = row * COLS + col
     if (blocksRef.current[index]) return
@@ -123,7 +123,7 @@ export function EvolutionGame() {
       ctx.fillStyle = '#304f59'; ctx.font = '21px sans-serif'; ctx.fillText(current === 'failed' ? '☹  ☹  ☹' : current === 'won' ? '↑  ↑  ↑' : '•  •  •', 642, 322)
       ctx.strokeStyle = '#d79b3b'; ctx.setLineDash([7, 5]); ctx.strokeRect(GRID_X - 6, GRID_Y - 6, COLS * CELL_W + 12, ROWS * CELL_H + 6); ctx.setLineDash([])
       ctx.fillStyle = '#856a45'; ctx.font = '700 12px sans-serif'; ctx.fillText('ここに堤防をつくる', GRID_X, GRID_Y - 14)
-      for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GRID_Y + row * CELL_H; ctx.strokeStyle = 'rgba(115,96,65,.35)'; ctx.strokeRect(x, y, CELL_W, CELL_H); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x, y, CELL_W, CELL_H); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
+      for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GROUND_Y - (row + 1) * CELL_H; ctx.strokeStyle = 'rgba(115,96,65,.35)'; ctx.strokeRect(x, y, CELL_W, CELL_H); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x, y, CELL_W, CELL_H); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
       if (current === 'rain' || current === 'failed' || current === 'won') {
         const rainMs = now - rainStartRef.current
         const seconds = Math.min(10, rainMs / 1000)
@@ -137,8 +137,8 @@ export function EvolutionGame() {
         const leveeHeight = leveeBlocks ? Math.max(CELL_H, Math.min(ROWS * CELL_H, Math.ceil(leveeBlocks / COLS) * CELL_H)) : 0
         const overtops = reachesGround && leveeHeight < water
         if (current === 'failed') floodProgressRef.current = Math.min(W - 200, floodProgressRef.current + 8)
-        if (current === 'failed' && floodProgressRef.current > 0) { ctx.fillStyle = 'rgba(35,79,103,.62)'; ctx.fillRect(200, GROUND_Y, floodProgressRef.current, H - GROUND_Y) }
-        if (reachesGround && overtops) { ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(GRID_X, GROUND_Y, W - GRID_X, water - (H - GROUND_Y)) }
+        if (current === 'failed' && floodProgressRef.current > 0) { const floodX = 200; const floodWidth = floodProgressRef.current; const waterHeight = Math.min(110, Math.max(12, GROUND_Y - waterY)); ctx.fillStyle = 'rgba(35,79,103,.72)'; ctx.fillRect(floodX, GROUND_Y - waterHeight, floodWidth, waterHeight) }
+        if (reachesGround && overtops) { const waterHeight = Math.min(110, Math.max(12, GROUND_Y - waterY)); ctx.fillStyle = 'rgba(35,79,103,.42)'; ctx.fillRect(GRID_X, GROUND_Y - waterHeight, W - GRID_X, waterHeight) }
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 70; i++) { const x = (i * 97 + now / 8) % W; const y = (i * 43 + now / 4) % 300; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 13); ctx.stroke() }
         if (current === 'won' && particlesRef.current.length < 100) for (let i = 0; i < 20; i++) particlesRef.current.push({ x: 580 + Math.random() * 260, y: 180, vx: Math.random() * 4 - 2, vy: Math.random() * 3 + 1, life: 1, color: ['#d99336', '#245a68', '#a94d47'][i % 3] })
         if (current === 'failed' && water >= PEAK_WATER) ctx.fillStyle = 'rgba(35,79,103,.38)'
