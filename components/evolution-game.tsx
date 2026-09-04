@@ -76,6 +76,12 @@ export function EvolutionGame() {
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return
     const index = row * COLS + col
     if (blocksRef.current[index]) return
+    // A block must sit on the ground or directly on another block.
+    if (row > 0 && !blocksRef.current[(row - 1) * COLS + col]) {
+      setToast('下のマスから順に積み上げてください。')
+      window.setTimeout(() => setToast(''), 1800)
+      return
+    }
     if (budget + price[material] > MAX_BUDGET) {
       setToast('予算オーバーです！')
       window.setTimeout(() => setToast(''), 1800)
@@ -117,10 +123,12 @@ export function EvolutionGame() {
       ctx.fillStyle = '#304f59'; ctx.font = '21px sans-serif'; ctx.fillText(current === 'failed' ? '☹  ☹  ☹' : current === 'won' ? '↑  ↑  ↑' : '•  •  •', 642, 322)
       ctx.strokeStyle = '#d79b3b'; ctx.setLineDash([7, 5]); ctx.strokeRect(GRID_X - 6, GRID_Y - 6, COLS * CELL_W + 12, ROWS * CELL_H + 6); ctx.setLineDash([])
       ctx.fillStyle = '#856a45'; ctx.font = '700 12px sans-serif'; ctx.fillText('ここに堤防をつくる', GRID_X, GRID_Y - 14)
-      for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GRID_Y + row * CELL_H; ctx.strokeStyle = 'rgba(115,96,65,.35)'; ctx.strokeRect(x, y, CELL_W, CELL_H); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x + 2, y + 2, 38, 30); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
+      for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) { const b = blocksRef.current[row * COLS + col]; const x = GRID_X + col * CELL_W; const y = GRID_Y + row * CELL_H; ctx.strokeStyle = 'rgba(115,96,65,.35)'; ctx.strokeRect(x, y, CELL_W, CELL_H); if (b) { ctx.fillStyle = b.material === 'concrete' ? '#667984' : '#a47943'; ctx.fillRect(x, y, CELL_W, CELL_H); ctx.fillStyle = b.material === 'concrete' ? '#b8c4c9' : '#c59654'; ctx.fillRect(x + 8, y + 8, 8, 6) } }
       if (current === 'rain' || current === 'failed' || current === 'won') {
-        const seconds = Math.min(10, (now - rainStartRef.current) / 1000)
-        const waterY = current === 'won' ? INITIAL_WATER_Y : Math.max(0, INITIAL_WATER_Y - seconds * 24)
+        const rainMs = now - rainStartRef.current
+        const seconds = Math.min(10, rainMs / 1000)
+        const targetWaterLevel = GROUND_Y - 110 // four-second flood target
+        const waterY = current === 'won' ? INITIAL_WATER_Y : INITIAL_WATER_Y - Math.min(1, rainMs / 4000) * (INITIAL_WATER_Y - targetWaterLevel)
         const water = H - waterY
         const reachesGround = waterY <= GROUND_Y
         // drawWater: surface rises from INITIAL_WATER_Y, never from underground.
@@ -138,10 +146,15 @@ export function EvolutionGame() {
       particlesRef.current.forEach((p) => { p.x += p.vx; p.y += p.vy; p.vy += .04; p.life -= .012; ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); ctx.globalAlpha = 1 })
       particlesRef.current = particlesRef.current.filter((p) => p.life > 0)
       if (current === 'rain') { const seconds = Math.floor((now - rainStartRef.current) / 1000); setElapsed(seconds); const s = stats(); const low = s.height <= 2; const thin = !s.completeRows; const soilFail = s.soilRatio >= .6
-        if (seconds >= 2 && thin && !collapseRef.current.length) { collapseRef.current = blocksRef.current.map((b, i) => b ? i : -1).filter((i) => i >= 0); collapseTimerRef.current = now; setToast('土砂パーツが崩れ始めました！') }
-        if (collapseRef.current.length && now - collapseTimerRef.current > 260) { const index = collapseRef.current.shift(); if (index !== undefined && blocksRef.current[index]) { const col = index % COLS; const row = Math.floor(index / COLS); for (let i = 0; i < 8; i++) particlesRef.current.push({ x: GRID_X + col * CELL_W + 8 + Math.random() * 12, y: GRID_Y + row * CELL_H + 12, vx: Math.random() * 2 - 1, vy: -Math.random() * 2, life: 1, color: '#8a6339' }); blocksRef.current[index] = null } collapseTimerRef.current = now }
-        const broken = thin && !collapseRef.current.length && seconds >= 2
-        if (seconds >= 2 && (low || broken || soilFail)) { outcomeRef.current = 'failed'; setMode('failed'); setToast(low ? '失敗！堤防が低すぎます（縦2マス以下）！水が溢れてしまいました。' : '失敗！堤防の厚みが足りません（横3マスすべて埋まっていません）！水圧で堤防が破壊されました。') } else if (seconds >= 10 && s.height >= 3 && s.height <= 4 && s.completeRows && s.soilRatio < .6 && budget <= MAX_BUDGET) { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') } }
+        const targetWaterLevel = GROUND_Y - 110 // four-second flood target
+        const waterReachedGround = INITIAL_WATER_Y - Math.min(1, (now - rainStartRef.current) / 4000) * (INITIAL_WATER_Y - targetWaterLevel) <= GROUND_Y
+        if (waterReachedGround && !collapseRef.current.length) {
+          if (soilFail) { blocksRef.current = Array(blocksCount).fill(null); outcomeRef.current = 'failed'; setMode('failed'); setToast('失敗！土砂が多すぎて堤防が崩れました。') }
+          else if (low) { outcomeRef.current = 'failed'; setMode('failed'); setToast('失敗！堤防が低すぎて水が溢れました。') }
+          else if (thin) { blocksRef.current = Array(blocksCount).fill(null); outcomeRef.current = 'failed'; setMode('failed'); setToast('失敗！堤防の厚みが足りず崩れました。') }
+          else { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') }
+        }
+      }
       frameRef.current = requestAnimationFrame(draw)
     }
     frameRef.current = requestAnimationFrame(draw)
