@@ -152,7 +152,7 @@ export function EvolutionGame() {
           if (soilFail) { blocksRef.current = Array(blocksCount).fill(null); outcomeRef.current = 'failed'; setMode('failed'); setToast('失敗！土砂が多すぎて堤防が崩れました。') }
           else if (low) { outcomeRef.current = 'failed'; setMode('failed'); setToast('失敗！堤防が低すぎて水が溢れました。') }
           else if (thin) { blocksRef.current = Array(blocksCount).fill(null); outcomeRef.current = 'failed'; setMode('failed'); setToast('失敗！堤防の厚みが足りず崩れました。') }
-          else { outcomeRef.current = 'won'; setMode('won'); setToast('大成功！頑丈な堤防で街を守りきりました！') }
+          else { outcomeRef.current = 'won'; setMode('won'); setToast('') }
         }
       }
       frameRef.current = requestAnimationFrame(draw)
